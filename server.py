@@ -1,102 +1,78 @@
 from flask import Flask, request, jsonify, render_template_string
 import base64
+import uuid
 
 app = Flask(__name__)
 
-# Storage semplice in memoria
-drawings_db = {}   # {matchID: {'word':..., 'drawing':..., 'score':..., 'subject':...}}
+# Storage in memoria dei disegni
+drawings_db = {}
 
-# -----------------------------
-# ROUTE UPLOAD
-# -----------------------------
+# ----------------------------
+# ROUTE PER UPLOAD
+# ----------------------------
 @app.route('/upload', methods=['POST'])
 def upload():
     data = request.get_json()
-    if not data or 'matchID' not in data or 'word' not in data or 'drawing' not in data:
+    if not data:
+        return jsonify({"error": "missing JSON"}), 400
+
+    match_id = data.get('matchID')
+    word = data.get('word')
+    drawing = data.get('drawing')
+
+    if not match_id or not word or not drawing:
         return jsonify({"error": "missing data"}), 400
 
-    matchID = data['matchID']
-    drawings_db[matchID] = {
-        'word': data['word'],
-        'drawing': data['drawing'],
-        'score': None,
-        'subject': None
+    # Salva nel DB in memoria
+    drawings_db[match_id] = {
+        "word": word,
+        "drawing": drawing
     }
 
     return jsonify({"status": "ok"}), 200
 
-# -----------------------------
-# ROUTE GET SCORE
-# -----------------------------
-@app.route('/get_score/<matchID>/<word>', methods=['GET'])
-def get_score(matchID, word):
-    entry = drawings_db.get(matchID)
+# ----------------------------
+# ROUTE PER PRENDERE IL PUNTEGGIO
+# ----------------------------
+@app.route('/get_score/<match_id>/<word>', methods=['GET'])
+def get_score(match_id, word):
+    entry = drawings_db.get(match_id)
     if not entry or entry['word'] != word:
-        return jsonify({"error": "not found"}), 404
-    score = entry['score'] if entry['score'] is not None else 0
+        return jsonify({"score": 0})
+    
+    # Per demo: punteggio casuale
+    import random
+    score = random.randint(0, 100)
     return jsonify({"score": score})
 
-# -----------------------------
-# ROUTE REVIEW PAGE
-# -----------------------------
+# ----------------------------
+# ROUTE PER REVIEW
+# ----------------------------
 @app.route('/review', methods=['GET'])
-def review_page():
-    html = '''
-    <!DOCTYPE html>
+def review():
+    # Template HTML direttamente in render_template_string
+    template = """
+    <!doctype html>
     <html>
     <head>
         <title>Review Drawings</title>
-        <style>
-            body { font-family: Arial; margin: 20px; }
-            .drawing { border: 1px solid #ccc; padding: 10px; margin-bottom: 20px; }
-            img { max-width: 200px; display: block; margin-bottom: 5px; }
-        </style>
     </head>
     <body>
         <h1>Review Drawings</h1>
-        {% for matchID, entry in drawings.items() %}
-            <div class="drawing">
-                <strong>Match ID:</strong> {{ matchID }}<br>
-                <img src="data:image/png;base64,{{ entry['drawing'] | safe }}" /><br>
-                <form action="/submit_score" method="post">
-                    <input type="hidden" name="matchID" value="{{ matchID }}">
-                    <input type="hidden" name="word" value="{{ entry['word'] }}">
-                    Subject: <input type="text" name="subject" value="{{ entry['subject'] or '' }}"><br>
-                    Score: <input type="number" name="score" value="{{ entry['score'] or '' }}"><br>
-                    <button type="submit">Submit</button>
-                </form>
+        {% for match_id, entry in drawings.items() %}
+            <div style="margin-bottom:20px; border:1px solid #ccc; padding:10px;">
+                <strong>Match ID:</strong> {{ match_id }}<br>
+                <strong>Word:</strong> {{ entry['word'] }}<br>
+                <img src="{{ entry['drawing'] | safe }}" style="max-width:300px; image-rendering:pixelated;"><br>
             </div>
         {% endfor %}
     </body>
     </html>
-    '''
-    return render_template_string(html, drawings=drawings_db)
+    """
+    return render_template_string(template, drawings=drawings_db)
 
-# -----------------------------
-# ROUTE SUBMIT SCORE
-# -----------------------------
-@app.route('/submit_score', methods=['POST'])
-def submit_score():
-    matchID = request.form.get('matchID')
-    score = request.form.get('score')
-    subject = request.form.get('subject')
-
-    if not matchID or score is None:
-        return "Missing data", 400
-
-    entry = drawings_db.get(matchID)
-    if not entry:
-        return "MatchID not found", 404
-
-    try:
-        entry['score'] = int(score)
-    except ValueError:
-        return "Invalid score", 400
-    entry['subject'] = subject
-    return "Score submitted! <a href='/review'>Back to review</a>"
-
-# -----------------------------
-# MAIN
-# -----------------------------
+# ----------------------------
+# RUN SERVER
+# ----------------------------
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host="0.0.0.0", port=5000, debug=True)
