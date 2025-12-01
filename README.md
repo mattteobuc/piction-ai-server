@@ -1,1 +1,1 @@
-# piccino-ai-server
+# piction-ai-server
