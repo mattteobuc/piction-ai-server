@@ -57,8 +57,7 @@ def review_page():
         {% for matchID, entry in drawings.items() %}
             <div class="drawing">
                 <strong>Match ID:</strong> {{ matchID }}<br>
-                <strong>Word:</strong> {{ entry['word'] }}<br>
-                <img src="{{ entry['drawing'] }}"><br>
+                <img src="data:image/png;base64,{{ entry['drawing'] | safe }}" /><br>
                 <form action="/submit_score" method="post">
                     <input type="hidden" name="matchID" value="{{ matchID }}">
                     <input type="hidden" name="word" value="{{ entry['word'] }}">
